@@ -1,0 +1,193 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <cctype>
+#include <stdexcept>
+#include <map>
+using namespace std;
+
+string get_next_field(string& line, const string& delimiter);
+string clean_field(const string& field);
+
+class Animal {
+public:
+    string name;
+    string species;
+    int age;
+    string sex;
+    string birthSeason;
+    string color;
+    int weight;
+    string origin;
+
+    Animal(
+        string n,
+        string s,
+        int a,
+        string sx,
+        string bs,
+        string c,
+        int w,
+        string o
+    );
+
+    void printDetails() const;
+};
+
+Animal::Animal(
+    string n,
+    string s,
+    int a,
+    string sx,
+    string bs,
+    string c,
+    int w,
+    string o
+) :
+    name(n),
+    species(s),
+    age(a),
+    sex(sx),
+    birthSeason(bs),
+    color(c),
+    weight(w),
+    origin(o)
+{}
+
+void Animal::printDetails() const {
+    cout << "\n--- Animal Details ---" << endl;
+    cout << "Name: \t\t" << name << endl;
+    cout << "Species: \t" << species << endl;
+    cout << "Age: \t\t" << age << " years old" << endl;
+    cout << "Sex: \t\t" << sex << endl;
+    cout << "Born: \t\t" << birthSeason << endl;
+    cout << "Color: \t\t" << color << endl;
+    cout << "Weight: \t" << weight << " lbs" << endl;
+    cout << "Origin: \t" << origin << endl;
+    cout << "----------------------" << endl;
+}
+
+string get_next_field(string& line, const string& delimiter) {
+    size_t pos = line.find(delimiter);
+    if (pos == string::npos) {
+        string field = line;
+        line.clear();
+        return field;
+    }
+
+    string field = line.substr(0, pos);
+    line.erase(0, pos + delimiter.length());
+    return field;
+}
+
+string clean_field(const string& field) {
+    string cleaned = field;
+
+    size_t pos;
+    pos = cleaned.find(" old"); if (pos != string::npos) cleaned.erase(pos);
+    pos = cleaned.find(" pounds"); if (pos != string::npos) cleaned.erase(pos);
+    pos = cleaned.find(" year"); if (pos != string::npos) cleaned.erase(pos);
+    pos = cleaned.find(" color"); if (pos != string::npos) cleaned.erase(pos);
+
+    cleaned.erase(0, cleaned.find_first_not_of(" \t\n\r"));
+    cleaned.erase(cleaned.find_last_not_of(" \t\n\r") + 1);
+
+    return cleaned;
+}
+
+int main() {
+    cout << "Hello and welcome to my zoo keeper challenge!\n";
+
+    vector<Animal> animals;
+    map<string, int> species_count;
+    const string FILENAME = "arrivingAnimals.txt";
+
+    ifstream infile(FILENAME);
+
+    if (!infile.is_open()) {
+        cerr << "Error: Could not open file " << FILENAME << endl;
+        cerr << "Please check if the file exists in the directory." << endl;
+        return 1;
+    } else {
+        cout << "Successfully opened file " << FILENAME << " for reading." << endl;
+
+        string line;
+        while (getline(infile, line)) {
+            if (line.empty() || line.find_first_not_of(" \t\n\r") == string::npos) {
+                continue;
+            }
+
+            string temp_line = line;
+
+            stringstream first_part(get_next_field(temp_line, ","));
+            int age_val;
+            string sex_val;
+            string species_val;
+            string token;
+
+            first_part >> age_val >> token >> token >> sex_val >> species_val;
+
+            string birth_season_raw = get_next_field(temp_line, ",");
+            string birth_season_val = clean_field(birth_season_raw);
+            size_t season_pos = birth_season_val.find(" in ");
+            if (season_pos != string::npos) {
+                birth_season_val = birth_season_val.substr(season_pos + 4);
+            }
+            string color_val = clean_field(get_next_field(temp_line, ","));
+            string weight_raw = clean_field(get_next_field(temp_line, ","));
+            int weight_val = 0;
+
+            try {
+                weight_val = stoi(weight_raw);
+            } catch (const std::invalid_argument& e) {
+                cerr << "Warning: Failed to convert weight for line: " << line << endl;
+            }
+            string origin_val = clean_field(get_next_field(temp_line, ","));
+
+            origin_val += ", " + clean_field(temp_line);
+            size_t from_pos = origin_val.find("from ");
+
+            if (from_pos != string::npos) {
+                origin_val.erase(0, from_pos + 5);
+            }
+
+            string prefix = species_val.substr(0, 2);
+            prefix[0] = toupper(prefix[0]);
+
+            // Use the 'species_count' map to track and increment the count
+            species_count[prefix]++;
+
+            int current_count = species_count[prefix];
+
+            // Format the count into a two-digit ID string (e.g., Hy01)
+            std::stringstream ss;
+            ss << prefix << std::setw(2) << std::setfill('0') << current_count;
+
+            std::string animal_id = ss.str();
+            animals.emplace_back(
+                animal_id,
+                species_val,
+                age_val,
+                sex_val,
+                birth_season_val,
+                color_val,
+                weight_val,
+                origin_val
+            );
+        }
+
+        infile.close();
+    }
+
+    cout << "\nFinished parsing " << animals.size() << " animals." << endl;
+    cout << "\nDisplaying all parsed animals (with placeholder names):" << endl;
+
+    for (const auto& animal : animals) {
+        animal.printDetails();
+    }
+
+    return 0;
+}
